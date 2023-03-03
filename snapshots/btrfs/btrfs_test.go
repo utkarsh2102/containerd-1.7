@@ -1,5 +1,4 @@
 //go:build linux && !no_btrfs && cgo
-// +build linux,!no_btrfs,cgo
 
 /*
    Copyright The containerd Authors.
@@ -121,19 +120,7 @@ func TestBtrfsMounts(t *testing.T) {
 	testutil.RequiresRoot(t)
 	ctx := context.Background()
 
-	// create temporary directory for mount point
-	mountPoint, err := os.MkdirTemp("", "containerd-btrfs-test")
-	if err != nil {
-		t.Fatal("could not create mount point for btrfs test", err)
-	}
-	defer os.RemoveAll(mountPoint)
-	t.Log("temporary mount point created", mountPoint)
-
-	root, err := os.MkdirTemp(mountPoint, "TestBtrfsPrepare-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 
 	b, c, err := boltSnapshotter(t)(ctx, root)
 	if err != nil {

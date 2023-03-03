@@ -17,6 +17,7 @@
 package integration
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -24,16 +25,16 @@ import (
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/errdefs"
+	"github.com/containerd/containerd/integration/images"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
 // Test to test the CRI plugin should see image pulled into containerd directly.
 func TestContainerdImage(t *testing.T) {
-	var testImage = GetImage(BusyBox)
+	var testImage = images.Get(images.BusyBox)
 	ctx := context.Background()
 
 	t.Logf("make sure the test image doesn't exist in the cri plugin")
@@ -153,7 +154,7 @@ func TestContainerdImage(t *testing.T) {
 
 // Test image managed by CRI plugin shouldn't be affected by images in other namespaces.
 func TestContainerdImageInOtherNamespaces(t *testing.T) {
-	var testImage = GetImage(BusyBox)
+	var testImage = images.Get(images.BusyBox)
 	ctx := context.Background()
 
 	t.Logf("make sure the test image doesn't exist in the cri plugin")

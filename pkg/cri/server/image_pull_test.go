@@ -20,14 +20,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"strings"
 	"testing"
 
-	digest "github.com/opencontainers/go-digest"
-	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
 
+	"github.com/containerd/containerd/pkg/cri/annotations"
 	criconfig "github.com/containerd/containerd/pkg/cri/config"
 )
 
@@ -102,11 +100,12 @@ func TestParseAuth(t *testing.T) {
 			expectedSecret: testPasswd,
 		},
 	} {
-		t.Logf("TestCase %q", desc)
-		u, s, err := ParseAuth(test.auth, test.host)
-		assert.Equal(t, test.expectErr, err != nil)
-		assert.Equal(t, test.expectedUser, u)
-		assert.Equal(t, test.expectedSecret, s)
+		t.Run(desc, func(t *testing.T) {
+			u, s, err := ParseAuth(test.auth, test.host)
+			assert.Equal(t, test.expectErr, err != nil)
+			assert.Equal(t, test.expectedUser, u)
+			assert.Equal(t, test.expectedSecret, s)
+		})
 	}
 }
 
@@ -250,12 +249,13 @@ func TestRegistryEndpoints(t *testing.T) {
 			},
 		},
 	} {
-		t.Logf("TestCase %q", desc)
-		c := newTestCRIService()
-		c.config.Registry.Mirrors = test.mirrors
-		got, err := c.registryEndpoints(test.host)
-		assert.NoError(t, err)
-		assert.Equal(t, test.expected, got)
+		t.Run(desc, func(t *testing.T) {
+			c := newTestCRIService()
+			c.config.Registry.Mirrors = test.mirrors
+			got, err := c.registryEndpoints(test.host)
+			assert.NoError(t, err)
+			assert.Equal(t, test.expected, got)
+		})
 	}
 }
 
@@ -305,9 +305,10 @@ func TestDefaultScheme(t *testing.T) {
 			expected: "https",
 		},
 	} {
-		t.Logf("TestCase %q", desc)
-		got := defaultScheme(test.host)
-		assert.Equal(t, test.expected, got)
+		t.Run(desc, func(t *testing.T) {
+			got := defaultScheme(test.host)
+			assert.Equal(t, test.expected, got)
+		})
 	}
 }
 
@@ -325,55 +326,72 @@ func TestEncryptedImagePullOpts(t *testing.T) {
 			expectedOpts: 0,
 		},
 	} {
-		t.Logf("TestCase %q", desc)
-		c := newTestCRIService()
-		c.config.ImageDecryption.KeyModel = test.keyModel
-		got := len(c.encryptedImagesPullOpts())
-		assert.Equal(t, test.expectedOpts, got)
+		t.Run(desc, func(t *testing.T) {
+			c := newTestCRIService()
+			c.config.ImageDecryption.KeyModel = test.keyModel
+			got := len(c.encryptedImagesPullOpts())
+			assert.Equal(t, test.expectedOpts, got)
+		})
 	}
 }
 
-func TestImageLayersLabel(t *testing.T) {
-	sampleKey := "sampleKey"
-	sampleDigest, err := digest.Parse("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-	assert.NoError(t, err)
-	sampleMaxSize := 300
-	sampleValidate := func(k, v string) error {
-		if (len(k) + len(v)) > sampleMaxSize {
-			return fmt.Errorf("invalid: %q: %q", k, v)
-		}
-		return nil
-	}
-
+func TestSnapshotterFromPodSandboxConfig(t *testing.T) {
+	defaultSnashotter := "native"
+	runtimeSnapshotter := "devmapper"
 	tests := []struct {
-		name      string
-		layersNum int
-		wantNum   int
+		desc              string
+		podSandboxConfig  *runtime.PodSandboxConfig
+		expectSnapshotter string
+		expectErr         error
 	}{
 		{
-			name:      "valid number of layers",
-			layersNum: 2,
-			wantNum:   2,
+			desc:              "should return default snapshotter for nil podSandboxConfig",
+			expectSnapshotter: defaultSnashotter,
 		},
 		{
-			name:      "many layers",
-			layersNum: 5, // hits sampleMaxSize (300 chars).
-			wantNum:   4, // layers should be omitted for avoiding invalid label.
+			desc:              "should return default snapshotter for nil podSandboxConfig.Annotations",
+			podSandboxConfig:  &runtime.PodSandboxConfig{},
+			expectSnapshotter: defaultSnashotter,
+		},
+		{
+			desc: "should return default snapshotter for empty podSandboxConfig.Annotations",
+			podSandboxConfig: &runtime.PodSandboxConfig{
+				Annotations: make(map[string]string),
+			},
+			expectSnapshotter: defaultSnashotter,
+		},
+		{
+			desc: "should return error for runtime not found",
+			podSandboxConfig: &runtime.PodSandboxConfig{
+				Annotations: map[string]string{
+					annotations.RuntimeHandler: "runtime-not-exists",
+				},
+			},
+			expectErr:         fmt.Errorf(`experimental: failed to get sandbox runtime for runtime-not-exists, err: no runtime for "runtime-not-exists" is configured`),
+			expectSnapshotter: "",
+		},
+		{
+			desc: "should return snapshotter provided in podSandboxConfig.Annotations",
+			podSandboxConfig: &runtime.PodSandboxConfig{
+				Annotations: map[string]string{
+					annotations.RuntimeHandler: "exiting-runtime",
+				},
+			},
+			expectSnapshotter: runtimeSnapshotter,
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var sampleLayers []imagespec.Descriptor
-			for i := 0; i < tt.layersNum; i++ {
-				sampleLayers = append(sampleLayers, imagespec.Descriptor{
-					MediaType: imagespec.MediaTypeImageLayerGzip,
-					Digest:    sampleDigest,
-				})
+		t.Run(tt.desc, func(t *testing.T) {
+			cri := newTestCRIService()
+			cri.config.ContainerdConfig.Snapshotter = defaultSnashotter
+			cri.config.ContainerdConfig.Runtimes = make(map[string]criconfig.Runtime)
+			cri.config.ContainerdConfig.Runtimes["exiting-runtime"] = criconfig.Runtime{
+				Snapshotter: runtimeSnapshotter,
 			}
-			gotS := getLayers(context.Background(), sampleKey, sampleLayers, sampleValidate)
-			got := len(strings.Split(gotS, ","))
-			assert.Equal(t, tt.wantNum, got)
+			snapshotter, err := cri.snapshotterFromPodSandboxConfig(context.Background(), "test-image", tt.podSandboxConfig)
+			assert.Equal(t, tt.expectSnapshotter, snapshotter)
+			assert.Equal(t, tt.expectErr, err)
 		})
 	}
 }

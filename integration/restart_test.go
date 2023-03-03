@@ -17,6 +17,7 @@
 package integration
 
 import (
+	"context"
 	goruntime "runtime"
 	"sort"
 	"syscall"
@@ -24,10 +25,9 @@ import (
 	"time"
 
 	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/errdefs"
+	"github.com/containerd/containerd/integration/images"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
@@ -108,6 +108,7 @@ func TestContainerdRestart(t *testing.T) {
 			runtimeService.RemovePodSandbox(sid)
 		}()
 
+		pauseImage := images.Get(images.Pause)
 		EnsureImageExists(t, pauseImage)
 
 		s.id = sid
@@ -141,25 +142,12 @@ func TestContainerdRestart(t *testing.T) {
 			require.NoError(t, err)
 
 			err = task.Kill(ctx, syscall.SIGKILL, containerd.WithKillAll)
-			if goruntime.GOOS != "windows" {
-				// NOTE: CRI-plugin setups watcher for each container and
-				// cleanups container when the watcher returns exit event.
-				// We just need to kill that sandbox and wait for exit
-				// event from waitCh. If the sandbox container exits,
-				// the state of sandbox must be NOT_READY.
-				require.NoError(t, err)
-			} else {
-				// NOTE(gabriel-samfira): On Windows, the "notready-sandbox" array
-				// only has a container in the ContainerState_CONTAINER_CREATED
-				// state and a container in the ContainerState_CONTAINER_EXITED state.
-				// Sending a Kill() to a task that has already exited, or to a task that
-				// was never started (which is the case here), will always return an
-				// ErrorNotFound (at least on Windows). Given that in this sanbox, there
-				// will never be a running task, after we recover from a containerd restart
-				// we can expect an ErrorNotFound here every time.
-				// The waitCh channel should already be closed at this point.
-				assert.True(t, errdefs.IsNotFound(err), err)
-			}
+			// NOTE: CRI-plugin setups watcher for each container and
+			// cleanups container when the watcher returns exit event.
+			// We just need to kill that sandbox and wait for exit
+			// event from waitCh. If the sandbox container exits,
+			// the state of sandbox must be NOT_READY.
+			require.NoError(t, err)
 
 			select {
 			case <-waitCh:
@@ -170,7 +158,7 @@ func TestContainerdRestart(t *testing.T) {
 	}
 
 	t.Logf("Pull test images")
-	for _, image := range []string{GetImage(BusyBox), GetImage(Pause)} {
+	for _, image := range []string{images.Get(images.BusyBox), images.Get(images.Pause)} {
 		EnsureImageExists(t, image)
 	}
 	imagesBeforeRestart, err := imageService.ListImages(nil)
@@ -191,6 +179,21 @@ func TestContainerdRestart(t *testing.T) {
 			if s.id == loaded.Id {
 				t.Logf("Checking sandbox state for '%s'", s.name)
 				assert.Equal(t, s.state, loaded.State)
+
+				// See https://github.com/containerd/containerd/issues/7843 for details.
+				// Test that CNI result and sandbox IPs are still present after restart.
+				if loaded.State == runtime.PodSandboxState_SANDBOX_READY {
+					status, info, err := SandboxInfo(loaded.Id)
+					require.NoError(t, err)
+
+					// Check that the NetNS didn't close on us, that we still have
+					// the CNI result, and that we still have the IP we were given
+					// for this pod.
+					require.False(t, info.NetNSClosed)
+					require.NotNil(t, info.CNIResult)
+					require.NotNil(t, status.Network)
+					require.NotEmpty(t, status.Network.Ip)
+				}
 				break
 			}
 		}

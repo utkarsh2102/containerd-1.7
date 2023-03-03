@@ -19,10 +19,10 @@ package testsuite
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
 
 	"github.com/containerd/containerd/mount"
+	"github.com/containerd/containerd/pkg/randutil"
 	"github.com/containerd/containerd/snapshots"
 	"github.com/containerd/continuity/fs/fstest"
 )
@@ -49,7 +49,7 @@ func applyToMounts(m []mount.Mount, work string, a fstest.Applier) (err error) {
 // createSnapshot creates a new snapshot in the snapshotter
 // given an applier to run on top of the given parent.
 func createSnapshot(ctx context.Context, sn snapshots.Snapshotter, parent, work string, a fstest.Applier) (string, error) {
-	n := fmt.Sprintf("%p-%d", a, rand.Int())
+	n := fmt.Sprintf("%p-%d", a, randutil.Int())
 	prepare := fmt.Sprintf("%s-prepare", n)
 
 	m, err := sn.Prepare(ctx, prepare, parent, opt)
@@ -140,28 +140,28 @@ func checkSnapshots(ctx context.Context, sn snapshots.Snapshotter, work string, 
 // checkInfo checks that the infos are the same
 func checkInfo(si1, si2 snapshots.Info) error {
 	if si1.Kind != si2.Kind {
-		return fmt.Errorf("Expected kind %v, got %v", si1.Kind, si2.Kind)
+		return fmt.Errorf("expected kind %v, got %v", si1.Kind, si2.Kind)
 	}
 	if si1.Name != si2.Name {
-		return fmt.Errorf("Expected name %v, got %v", si1.Name, si2.Name)
+		return fmt.Errorf("expected name %v, got %v", si1.Name, si2.Name)
 	}
 	if si1.Parent != si2.Parent {
-		return fmt.Errorf("Expected Parent %v, got %v", si1.Parent, si2.Parent)
+		return fmt.Errorf("expected Parent %v, got %v", si1.Parent, si2.Parent)
 	}
 	if len(si1.Labels) != len(si2.Labels) {
-		return fmt.Errorf("Expected %d labels, got %d", len(si1.Labels), len(si2.Labels))
+		return fmt.Errorf("expected %d labels, got %d", len(si1.Labels), len(si2.Labels))
 	}
 	for k, l1 := range si1.Labels {
 		l2 := si2.Labels[k]
 		if l1 != l2 {
-			return fmt.Errorf("Expected label %v, got %v", l1, l2)
+			return fmt.Errorf("expected label %v, got %v", l1, l2)
 		}
 	}
 	if si1.Created != si2.Created {
-		return fmt.Errorf("Expected Created %v, got %v", si1.Created, si2.Created)
+		return fmt.Errorf("expected Created %v, got %v", si1.Created, si2.Created)
 	}
 	if si1.Updated != si2.Updated {
-		return fmt.Errorf("Expected Updated %v, got %v", si1.Updated, si2.Updated)
+		return fmt.Errorf("expected Updated %v, got %v", si1.Updated, si2.Updated)
 	}
 
 	return nil
