@@ -1,5 +1,4 @@
 //go:build linux
-// +build linux
 
 /*
    Copyright The containerd Authors.
@@ -23,12 +22,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	kernel "github.com/containerd/containerd/contrib/seccomp/kernelversion"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/mount"
 	"github.com/containerd/containerd/pkg/userns"
 	"github.com/containerd/continuity/fs"
+)
+
+const (
+	// see https://man7.org/linux/man-pages/man2/statfs.2.html
+	tmpfsMagic = 0x01021994
 )
 
 // SupportsMultipleLowerDir checks if the system supports multiple lowerdirs,
@@ -88,6 +93,21 @@ func Supported(root string) error {
 	return SupportsMultipleLowerDir(root)
 }
 
+// IsPathOnTmpfs returns whether the path is on a tmpfs or not.
+//
+// It uses statfs to check if the fs type is TMPFS_MAGIC (0x01021994)
+// see https://man7.org/linux/man-pages/man2/statfs.2.html
+func IsPathOnTmpfs(d string) bool {
+	stat := syscall.Statfs_t{}
+	err := syscall.Statfs(d, &stat)
+	if err != nil {
+		log.L.WithError(err).Warnf("Could not retrieve statfs for %v", d)
+		return false
+	}
+
+	return stat.Type == tmpfsMagic
+}
+
 // NeedsUserXAttr returns whether overlayfs should be mounted with the "userxattr" mount option.
 //
 // The "userxattr" option is needed for mounting overlayfs inside a user namespace with kernel >= 5.11.
@@ -111,6 +131,11 @@ func NeedsUserXAttr(d string) (bool, error) {
 	if !userns.RunningInUserNS() {
 		// we are the real root (i.e., the root in the initial user NS),
 		// so we do never need "userxattr" opt.
+		return false, nil
+	}
+
+	// userxattr not permitted on tmpfs https://man7.org/linux/man-pages/man5/tmpfs.5.html
+	if IsPathOnTmpfs(d) {
 		return false, nil
 	}
 
@@ -150,7 +175,7 @@ func NeedsUserXAttr(d string) (bool, error) {
 	}
 
 	opts := []string{
-		fmt.Sprintf("lowerdir=%s:%s,upperdir=%s,workdir=%s", filepath.Join(td, "lower2"), filepath.Join(td, "lower1"), filepath.Join(td, "upper"), filepath.Join(td, "work")),
+		fmt.Sprintf("ro,lowerdir=%s:%s,upperdir=%s,workdir=%s", filepath.Join(td, "lower2"), filepath.Join(td, "lower1"), filepath.Join(td, "upper"), filepath.Join(td, "work")),
 		"userxattr",
 	}
 

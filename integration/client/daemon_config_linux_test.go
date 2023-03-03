@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/containerd/cgroups"
+	"github.com/containerd/cgroups/v3"
 	. "github.com/containerd/containerd"
 	"github.com/containerd/containerd/oci"
 	"github.com/containerd/containerd/plugin"
@@ -35,15 +35,7 @@ import (
 
 // TestDaemonRuntimeRoot ensures plugin.linux.runtime_root is not ignored
 func TestDaemonRuntimeRoot(t *testing.T) {
-	runtimeRoot, err := os.MkdirTemp("", "containerd-test-runtime-root")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err != nil {
-			os.RemoveAll(runtimeRoot)
-		}
-	}()
+	runtimeRoot := t.TempDir()
 	configTOML := `
 version = 2
 [plugins]

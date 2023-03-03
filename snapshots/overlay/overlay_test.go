@@ -1,5 +1,4 @@
 //go:build linux
-// +build linux
 
 /*
    Copyright The containerd Authors.
@@ -57,7 +56,7 @@ func TestOverlay(t *testing.T) {
 	for optsName, opts := range optTestCases {
 		t.Run(optsName, func(t *testing.T) {
 			newSnapshotter := newSnapshotterWithOpts(opts...)
-			testsuite.SnapshotterSuite(t, "Overlay", newSnapshotter)
+			testsuite.SnapshotterSuite(t, "overlayfs", newSnapshotter)
 			t.Run("TestOverlayMounts", func(t *testing.T) {
 				testOverlayMounts(t, newSnapshotter)
 			})
@@ -79,11 +78,7 @@ func TestOverlay(t *testing.T) {
 
 func testOverlayMounts(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	ctx := context.TODO()
-	root, err := os.MkdirTemp("", "overlay")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 	o, _, err := newSnapshotter(ctx, root)
 	if err != nil {
 		t.Fatal(err)
@@ -113,11 +108,7 @@ func testOverlayMounts(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 
 func testOverlayCommit(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	ctx := context.TODO()
-	root, err := os.MkdirTemp("", "overlay")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 	o, _, err := newSnapshotter(ctx, root)
 	if err != nil {
 		t.Fatal(err)
@@ -138,11 +129,7 @@ func testOverlayCommit(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 
 func testOverlayOverlayMount(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	ctx := context.TODO()
-	root, err := os.MkdirTemp("", "overlay")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 	o, _, err := newSnapshotter(ctx, root)
 	if err != nil {
 		t.Fatal(err)
@@ -235,11 +222,7 @@ func getParents(ctx context.Context, sn snapshots.Snapshotter, root, key string)
 func testOverlayOverlayRead(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	testutil.RequiresRoot(t)
 	ctx := context.TODO()
-	root, err := os.MkdirTemp("", "overlay")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 	o, _, err := newSnapshotter(ctx, root)
 	if err != nil {
 		t.Fatal(err)
@@ -278,11 +261,7 @@ func testOverlayOverlayRead(t *testing.T, newSnapshotter testsuite.SnapshotterFu
 
 func testOverlayView(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	ctx := context.TODO()
-	root, err := os.MkdirTemp("", "overlay")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	root := t.TempDir()
 	o, _, err := newSnapshotter(ctx, root)
 	if err != nil {
 		t.Fatal(err)

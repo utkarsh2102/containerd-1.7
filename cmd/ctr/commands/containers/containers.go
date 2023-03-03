@@ -30,7 +30,7 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/log"
-	"github.com/containerd/typeurl"
+	"github.com/containerd/typeurl/v2"
 	"github.com/urfave/cli"
 )
 
@@ -51,10 +51,11 @@ var Command = cli.Command{
 }
 
 var createCommand = cli.Command{
-	Name:      "create",
-	Usage:     "create container",
-	ArgsUsage: "[flags] Image|RootFS CONTAINER [COMMAND] [ARG...]",
-	Flags:     append(append(commands.SnapshotterFlags, []cli.Flag{commands.SnapshotterLabels}...), commands.ContainerFlags...),
+	Name:           "create",
+	Usage:          "create container",
+	ArgsUsage:      "[flags] Image|RootFS CONTAINER [COMMAND] [ARG...]",
+	SkipArgReorder: true,
+	Flags:          append(append(commands.SnapshotterFlags, []cli.Flag{commands.SnapshotterLabels}...), commands.ContainerFlags...),
 	Action: func(context *cli.Context) error {
 		var (
 			id     string
@@ -98,7 +99,7 @@ var listCommand = cli.Command{
 	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:  "quiet, q",
-			Usage: "print only the container id",
+			Usage: "Print only the container id",
 		},
 	},
 	Action: func(context *cli.Context) error {
@@ -152,7 +153,7 @@ var deleteCommand = cli.Command{
 	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:  "keep-snapshot",
-			Usage: "do not clean up snapshot with container",
+			Usage: "Do not clean up snapshot with container",
 		},
 	},
 	Action: func(context *cli.Context) error {
@@ -250,7 +251,7 @@ var infoCommand = cli.Command{
 	Flags: []cli.Flag{
 		cli.BoolFlag{
 			Name:  "spec",
-			Usage: "only display the spec",
+			Usage: "Only display the spec",
 		},
 	},
 	Action: func(context *cli.Context) error {
@@ -280,7 +281,7 @@ var infoCommand = cli.Command{
 			return nil
 		}
 
-		if info.Spec != nil && info.Spec.Value != nil {
+		if info.Spec != nil && info.Spec.GetValue() != nil {
 			v, err := typeurl.UnmarshalAny(info.Spec)
 			if err != nil {
 				return err

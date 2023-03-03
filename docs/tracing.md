@@ -3,12 +3,14 @@
 containerd supports OpenTelemetry tracing since v1.6.0.
 Tracing currently targets only gRPC calls.
 
-## Sending traces from containerd deamon
+## Sending traces from containerd daemon
 
 By configuring `io.containerd.tracing.processor.v1.otlp` plugin.
 containerd daemon can send traces to the specified OpenTelemetry endpoint.
 
 ```toml
+version = 2
+
 [plugins."io.containerd.tracing.processor.v1.otlp"]
     endpoint = "http://localhost:4318"
 ```
@@ -26,6 +28,8 @@ The sampling ratio and the service name on the traces could be configured by
 `io.containerd.internal.v1.tracing` plugin.
 
 ```toml
+version = 2
+
 [plugins."io.containerd.internal.v1.tracing"]
     sampling_ratio = 1.0
     service_name = "containerd"
@@ -81,4 +85,3 @@ func clientWithTrace() error {
     defer span.End()
     ...
 }
-```

@@ -18,6 +18,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"syscall"
@@ -28,13 +29,11 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/oci"
-	"golang.org/x/net/context"
 	"k8s.io/client-go/tools/remotecommand"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
 
 	cio "github.com/containerd/containerd/pkg/cri/io"
 	"github.com/containerd/containerd/pkg/cri/util"
-	ctrdutil "github.com/containerd/containerd/pkg/cri/util"
 	cioutil "github.com/containerd/containerd/pkg/ioutil"
 )
 
@@ -158,7 +157,7 @@ func (c *criService) execInternal(ctx context.Context, container containerd.Cont
 		return nil, fmt.Errorf("failed to create exec %q: %w", execID, err)
 	}
 	defer func() {
-		deferCtx, deferCancel := ctrdutil.DeferContext()
+		deferCtx, deferCancel := util.DeferContext()
 		defer deferCancel()
 		if _, err := process.Delete(deferCtx, containerd.WithProcessKill); err != nil {
 			log.G(ctx).WithError(err).Errorf("Failed to delete exec process %q for container %q", execID, id)

@@ -24,13 +24,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	taskapi "github.com/containerd/containerd/api/runtime/task/v2"
 	"github.com/containerd/containerd/oci"
 	"github.com/containerd/containerd/pkg/failpoint"
 	"github.com/containerd/containerd/pkg/shutdown"
 	"github.com/containerd/containerd/plugin"
 	"github.com/containerd/containerd/runtime/v2/runc/task"
 	"github.com/containerd/containerd/runtime/v2/shim"
-	taskapi "github.com/containerd/containerd/runtime/v2/task"
 	"github.com/containerd/ttrpc"
 )
 
