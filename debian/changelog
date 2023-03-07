@@ -1,3 +1,12 @@
+containerd (1.7.0-rc.1-0ubuntu0~22.04.1~gke1) jammy; urgency=medium
+
+  * New upstream version 1.7.0-rc.1.
+  * Refresh d/patches.
+  * Add patch to fix unit test when SOURCE_DATE_EPOCH is set.
+  * PDFs have been removed; docs use a new .png.
+
+ -- Utkarsh Gupta <utkarsh.gupta@canonical.com>  Fri, 03 Mar 2023 15:24:30 +0530
+
 containerd (1.6.12-0ubuntu0~22.04.1~gke1) jammy; urgency=medium
 
   * No-change rebuild for Jammy. (Fixes: CVE-2022-23471)
