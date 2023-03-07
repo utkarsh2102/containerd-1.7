@@ -1,3 +1,10 @@
+containerd (1.7.0-rc.1-0ubuntu0~22.04.1~gke2) jammy; urgency=medium
+
+  * Add patch to skip negative OOM score adjustment test
+    as they fail on the LP builders.
+
+ -- Utkarsh Gupta <utkarsh@ubuntu.com>  Tue, 07 Mar 2023 17:36:31 +0530
+
 containerd (1.7.0-rc.1-0ubuntu0~22.04.1~gke1) jammy; urgency=medium
 
   * New upstream version 1.7.0-rc.1.
@@ -5,7 +12,7 @@ containerd (1.7.0-rc.1-0ubuntu0~22.04.1~gke1) jammy; urgency=medium
   * Add patch to fix unit test when SOURCE_DATE_EPOCH is set.
   * PDFs have been removed; docs use a new .png.
 
- -- Utkarsh Gupta <utkarsh.gupta@canonical.com>  Fri, 03 Mar 2023 15:24:30 +0530
+ -- Utkarsh Gupta <utkarsh@ubuntu.com>  Fri, 03 Mar 2023 15:24:30 +0530
 
 containerd (1.6.12-0ubuntu0~22.04.1~gke1) jammy; urgency=medium
 
