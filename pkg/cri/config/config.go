@@ -156,7 +156,7 @@ type CniConfig struct {
 	// (https://kubernetes.io/docs/concepts/cluster-administration/network-plugins/#kubenet)
 	// today, who don't have a cni daemonset in production. NetworkPluginConfTemplate is
 	// a temporary backward-compatible solution for them.
-	// TODO(random-liu): Deprecate this option when kubenet is deprecated.
+	// DEPRECATED: use CNI configs
 	NetworkPluginConfTemplate string `toml:"conf_template" json:"confTemplate"`
 	// IPPreference specifies the strategy to use when selecting the main IP address for a pod.
 	//
@@ -210,7 +210,7 @@ type Registry struct {
 	Mirrors map[string]Mirror `toml:"mirrors" json:"mirrors"`
 	// Configs are configs for each registry.
 	// The key is the domain name or IP of the registry.
-	// This option will be fully deprecated for ConfigPath in the future.
+	// DEPRECATED: Use ConfigPath instead.
 	Configs map[string]RegistryConfig `toml:"configs" json:"configs"`
 	// Auths are registry endpoint to auth config mapping. The registry endpoint must
 	// be a valid url with host specified.
@@ -351,6 +351,15 @@ type PluginConfig struct {
 	// The string is in the golang duration format, see:
 	//   https://golang.org/pkg/time/#ParseDuration
 	ImagePullProgressTimeout string `toml:"image_pull_progress_timeout" json:"imagePullProgressTimeout"`
+	// DrainExecSyncIOTimeout is the maximum duration to wait for ExecSync
+	// API' IO EOF event after exec init process exits. A zero value means
+	// there is no timeout.
+	//
+	// The string is in the golang duration format, see:
+	//   https://golang.org/pkg/time/#ParseDuration
+	//
+	// For example, the value can be '5h', '2h30m', '10s'.
+	DrainExecSyncIOTimeout string `toml:"drain_exec_sync_io_timeout" json:"drainExecSyncIOTimeout"`
 }
 
 // X509KeyPairStreaming contains the x509 configuration for streaming
@@ -507,6 +516,13 @@ func ValidatePluginConfig(ctx context.Context, c *PluginConfig) error {
 	if c.ImagePullProgressTimeout != "" {
 		if _, err := time.ParseDuration(c.ImagePullProgressTimeout); err != nil {
 			return fmt.Errorf("invalid image pull progress timeout: %w", err)
+		}
+	}
+
+	// Validation for drain_exec_sync_io_timeout
+	if c.DrainExecSyncIOTimeout != "" {
+		if _, err := time.ParseDuration(c.DrainExecSyncIOTimeout); err != nil {
+			return fmt.Errorf("invalid `drain_exec_sync_io_timeout`: %w", err)
 		}
 	}
 	return nil
