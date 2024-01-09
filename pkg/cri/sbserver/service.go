@@ -17,7 +17,6 @@
 package sbserver
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -36,6 +35,7 @@ import (
 	"github.com/containerd/containerd/pkg/kmutex"
 	"github.com/containerd/containerd/plugin"
 	"github.com/containerd/containerd/sandbox"
+	"github.com/containerd/containerd/services/warning"
 	runtime_alpha "github.com/containerd/containerd/third_party/k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 	"github.com/containerd/go-cni"
 	"github.com/sirupsen/logrus"
@@ -65,7 +65,7 @@ type CRIService interface {
 	// Closer is used by containerd to gracefully stop cri service.
 	io.Closer
 
-	Run() error
+	Run(ready func()) error
 
 	Register(*grpc.Server) error
 }
@@ -123,10 +123,12 @@ type criService struct {
 	containerEventsChan chan runtime.ContainerEventResponse
 	// nri is used to hook NRI into CRI request processing.
 	nri *nri.API
+	// warn is used to emit warnings for cri-api v1alpha2 usage.
+	warn warning.Service
 }
 
 // NewCRIService returns a new instance of CRIService
-func NewCRIService(config criconfig.Config, client *containerd.Client, nri *nri.API) (CRIService, error) {
+func NewCRIService(config criconfig.Config, client *containerd.Client, nri *nri.API, warn warning.Service) (CRIService, error) {
 	var err error
 	labels := label.NewStore()
 	c := &criService{
@@ -143,6 +145,7 @@ func NewCRIService(config criconfig.Config, client *containerd.Client, nri *nri.
 		netPlugin:                   make(map[string]cni.CNI),
 		unpackDuplicationSuppressor: kmutex.New(),
 		sandboxControllers:          make(map[criconfig.SandboxControllerMode]sandbox.Controller),
+		warn:                        warn,
 	}
 
 	// TODO: figure out a proper channel size.
@@ -205,12 +208,6 @@ func (c *criService) BackOffEvent(id string, event interface{}) {
 	c.eventMonitor.backOff.enBackOff(id, event)
 }
 
-// GenerateAndSendContainerEvent is a temporary workaround to send PLEG events from podsandbopx/ controller
-// TODO: refactor PLEG event generator so both podsandbox/ controller and CRI service can access it.
-func (c *criService) GenerateAndSendContainerEvent(ctx context.Context, containerID string, sandboxID string, eventType runtime.ContainerEventType) {
-	c.generateAndSendContainerEvent(ctx, containerID, sandboxID, eventType)
-}
-
 // Register registers all required services onto a specific grpc server.
 // This is used by containerd cri plugin.
 func (c *criService) Register(s *grpc.Server) error {
@@ -227,7 +224,7 @@ func (c *criService) RegisterTCP(s *grpc.Server) error {
 }
 
 // Run starts the CRI service.
-func (c *criService) Run() error {
+func (c *criService) Run(ready func()) error {
 	logrus.Info("Start subscribing containerd event")
 	c.eventMonitor.subscribe(c.client)
 
@@ -260,10 +257,17 @@ func (c *criService) Run() error {
 			netSyncGroup.Done()
 		}(h)
 	}
-	go func() {
-		netSyncGroup.Wait()
-		close(cniNetConfMonitorErrCh)
-	}()
+	// For platforms that may not support CNI (darwin etc.) there's no
+	// use in launching this as `Wait` will return immediately. Further
+	// down we select on this channel along with some others to determine
+	// if we should Close() the CRI service, so closing this preemptively
+	// isn't good.
+	if len(c.cniNetConfMonitor) > 0 {
+		go func() {
+			netSyncGroup.Wait()
+			close(cniNetConfMonitorErrCh)
+		}()
+	}
 
 	// Start streaming server.
 	logrus.Info("Start streaming server")
@@ -283,6 +287,7 @@ func (c *criService) Run() error {
 
 	// Set the server as initialized. GRPC services could start serving traffic.
 	c.initialized.Set()
+	ready()
 
 	var eventMonitorErr, streamServerErr, cniNetConfMonitorErr error
 	// Stop the whole CRI service if any of the critical service exits.
@@ -342,7 +347,7 @@ func (c *criService) register(s *grpc.Server) error {
 	runtime.RegisterRuntimeServiceServer(s, instrumented)
 	runtime.RegisterImageServiceServer(s, instrumented)
 
-	instrumentedAlpha := instrument.NewAlphaService(c)
+	instrumentedAlpha := instrument.NewAlphaService(c, c.warn)
 	runtime_alpha.RegisterRuntimeServiceServer(s, instrumentedAlpha)
 	runtime_alpha.RegisterImageServiceServer(s, instrumentedAlpha)
 

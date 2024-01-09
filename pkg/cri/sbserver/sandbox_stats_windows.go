@@ -36,7 +36,8 @@ import (
 
 func (c *criService) podSandboxStats(
 	ctx context.Context,
-	sandbox sandboxstore.Sandbox) (*runtime.PodSandboxStats, error) {
+	sandbox sandboxstore.Sandbox,
+) (*runtime.PodSandboxStats, error) {
 	meta := sandbox.Metadata
 
 	if sandbox.Status.Get().State != sandboxstore.StateReady {
@@ -127,6 +128,11 @@ func (c *criService) toPodSandboxStats(sandbox sandboxstore.Sandbox, statsMap ma
 	windowsContainerStats := make([]*runtime.WindowsContainerStats, 0, len(statsMap))
 	for _, cntr := range containers {
 		containerMetric := statsMap[cntr.ID]
+
+		if cntr.Status.Get().State() != runtime.ContainerState_CONTAINER_RUNNING {
+			// containers that are just created, in a failed state or exited (init containers) will not have stats
+			continue
+		}
 
 		if containerMetric == nil {
 			return nil, nil, fmt.Errorf("failed to find metrics for container with id %s: %w", cntr.ID, err)
@@ -266,7 +272,9 @@ func (c *criService) listWindowsMetricsForSandbox(ctx context.Context, sandbox s
 
 func (c *criService) convertToCRIStats(stats *wstats.Statistics) (*runtime.WindowsContainerStats, error) {
 	var cs runtime.WindowsContainerStats
-	if stats != nil {
+	// the metric should exist but stats or stats.container will be nil for HostProcess sandbox containers
+	// this can also be the case when the container has not started yet
+	if stats != nil && stats.Container != nil {
 		wstats := stats.GetWindows()
 		if wstats == nil {
 			return nil, fmt.Errorf("windows stats is empty")

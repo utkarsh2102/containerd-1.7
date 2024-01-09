@@ -12,7 +12,7 @@ on:
 env:
   # Go version we currently use to build containerd across all CI.
   # Note: don't forget to update `Binaries` step, as it contains the matrix of all supported Go versions.
-  GO_VERSION: "1.20.2"
+  GO_VERSION: "1.20.12"
 
 permissions: # added using https://github.com/step-security/secure-workflows
   contents: read
@@ -207,7 +207,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-12, windows-2019, windows-2022]
-        go-version: ["1.20.2", "1.19.7"]
+        go-version: ["1.20.12", "1.21.5"]
     steps:
       - uses: actions/setup-go@v3
         with:
@@ -322,6 +322,7 @@ jobs:
           ENABLE_CRI_SANDBOXES: ${{ matrix.enable_cri_sandboxes }}
           GOTESTSUM_JUNITFILE: ${{github.workspace}}/test-integration-serial-junit.xml
           GOTESTSUM_JSONFILE: ${{github.workspace}}/test-integration-serial-gotest.json
+          EXTRA_TESTFLAGS: "-timeout=20m"
         run: mingw32-make.exe integration
       - run: if [ -f *-gotest.json ]; then echo '# Integration 1' >> $GITHUB_STEP_SUMMARY; teststat -markdown *-gotest.json >> $GITHUB_STEP_SUMMARY; fi
         if: always()
