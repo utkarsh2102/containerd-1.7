@@ -18,7 +18,6 @@ package sbserver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,6 +31,7 @@ import (
 	"github.com/containerd/containerd/contrib/seccomp"
 	"github.com/containerd/containerd/mount"
 	"github.com/containerd/containerd/oci"
+	"github.com/containerd/containerd/platforms"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/opencontainers/selinux/go-selinux"
@@ -360,23 +360,16 @@ func TestContainerSpecWithExtraMounts(t *testing.T) {
 			HostPath:      "test-sys-extra",
 			Readonly:      false,
 		},
-		{
-			ContainerPath: "/dev",
-			HostPath:      "test-dev-extra",
-			Readonly:      false,
-		},
 	}
 	spec, err := c.buildContainerSpec(currentPlatform, testID, testSandboxID, testPid, "", testContainerName, testImageName, containerConfig, sandboxConfig, imageConfig, extraMounts, ociRuntime)
 	require.NoError(t, err)
 	specCheck(t, testID, testSandboxID, testPid, spec)
-	var mounts, sysMounts, devMounts []runtimespec.Mount
+	var mounts, sysMounts []runtimespec.Mount
 	for _, m := range spec.Mounts {
 		if strings.HasPrefix(m.Destination, "test-container-path") {
 			mounts = append(mounts, m)
 		} else if m.Destination == "/sys" {
 			sysMounts = append(sysMounts, m)
-		} else if strings.HasPrefix(m.Destination, "/dev") {
-			devMounts = append(devMounts, m)
 		}
 	}
 	t.Logf("CRI mount should override extra mount")
@@ -388,11 +381,6 @@ func TestContainerSpecWithExtraMounts(t *testing.T) {
 	require.Len(t, sysMounts, 1)
 	assert.Equal(t, "test-sys-extra", sysMounts[0].Source)
 	assert.Contains(t, sysMounts[0].Options, "rw")
-
-	t.Logf("Dev mount should override all default dev mounts")
-	require.Len(t, devMounts, 1)
-	assert.Equal(t, "test-dev-extra", devMounts[0].Source)
-	assert.Contains(t, devMounts[0].Options, "rw")
 }
 
 func TestContainerAndSandboxPrivileged(t *testing.T) {
@@ -440,173 +428,6 @@ func TestContainerAndSandboxPrivileged(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-		})
-	}
-}
-
-func TestContainerMounts(t *testing.T) {
-	const testSandboxID = "test-id"
-	for desc, test := range map[string]struct {
-		statFn          func(string) (os.FileInfo, error)
-		criMounts       []*runtime.Mount
-		securityContext *runtime.LinuxContainerSecurityContext
-		expectedMounts  []*runtime.Mount
-	}{
-		"should setup ro mount when rootfs is read-only": {
-			securityContext: &runtime.LinuxContainerSecurityContext{
-				ReadonlyRootfs: true,
-			},
-			expectedMounts: []*runtime.Mount{
-				{
-					ContainerPath:  "/etc/hostname",
-					HostPath:       filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hostname"),
-					Readonly:       true,
-					SelinuxRelabel: true,
-				},
-				{
-					ContainerPath:  "/etc/hosts",
-					HostPath:       filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hosts"),
-					Readonly:       true,
-					SelinuxRelabel: true,
-				},
-				{
-					ContainerPath:  resolvConfPath,
-					HostPath:       filepath.Join(testRootDir, sandboxesDir, testSandboxID, "resolv.conf"),
-					Readonly:       true,
-					SelinuxRelabel: true,
-				},
-				{
-					ContainerPath:  "/dev/shm",
-					HostPath:       filepath.Join(testStateDir, sandboxesDir, testSandboxID, "shm"),
-					Readonly:       false,
-					SelinuxRelabel: true,
-				},
-			},
-		},
-		"should setup rw mount when rootfs is read-write": {
-			securityContext: &runtime.LinuxContainerSecurityContext{},
-			expectedMounts: []*runtime.Mount{
-				{
-					ContainerPath:  "/etc/hostname",
-					HostPath:       filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hostname"),
-					Readonly:       false,
-					SelinuxRelabel: true,
-				},
-				{
-					ContainerPath:  "/etc/hosts",
-					HostPath:       filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hosts"),
-					Readonly:       false,
-					SelinuxRelabel: true,
-				},
-				{
-					ContainerPath:  resolvConfPath,
-					HostPath:       filepath.Join(testRootDir, sandboxesDir, testSandboxID, "resolv.conf"),
-					Readonly:       false,
-					SelinuxRelabel: true,
-				},
-				{
-					ContainerPath:  "/dev/shm",
-					HostPath:       filepath.Join(testStateDir, sandboxesDir, testSandboxID, "shm"),
-					Readonly:       false,
-					SelinuxRelabel: true,
-				},
-			},
-		},
-		"should use host /dev/shm when host ipc is set": {
-			securityContext: &runtime.LinuxContainerSecurityContext{
-				NamespaceOptions: &runtime.NamespaceOption{Ipc: runtime.NamespaceMode_NODE},
-			},
-			expectedMounts: []*runtime.Mount{
-				{
-					ContainerPath:  "/etc/hostname",
-					HostPath:       filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hostname"),
-					Readonly:       false,
-					SelinuxRelabel: true,
-				},
-				{
-					ContainerPath:  "/etc/hosts",
-					HostPath:       filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hosts"),
-					Readonly:       false,
-					SelinuxRelabel: true,
-				},
-				{
-					ContainerPath:  resolvConfPath,
-					HostPath:       filepath.Join(testRootDir, sandboxesDir, testSandboxID, "resolv.conf"),
-					Readonly:       false,
-					SelinuxRelabel: true,
-				},
-				{
-					ContainerPath: "/dev/shm",
-					HostPath:      "/dev/shm",
-					Readonly:      false,
-				},
-			},
-		},
-		"should skip container mounts if already mounted by CRI": {
-			criMounts: []*runtime.Mount{
-				{
-					ContainerPath: "/etc/hostname",
-					HostPath:      "/test-etc-hostname",
-				},
-				{
-					ContainerPath: "/etc/hosts",
-					HostPath:      "/test-etc-host",
-				},
-				{
-					ContainerPath: resolvConfPath,
-					HostPath:      "test-resolv-conf",
-				},
-				{
-					ContainerPath: "/dev/shm",
-					HostPath:      "test-dev-shm",
-				},
-			},
-			securityContext: &runtime.LinuxContainerSecurityContext{},
-			expectedMounts:  nil,
-		},
-		"should skip hostname mount if the old sandbox doesn't have hostname file": {
-			statFn: func(path string) (os.FileInfo, error) {
-				assert.Equal(t, filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hostname"), path)
-				return nil, errors.New("random error")
-			},
-			securityContext: &runtime.LinuxContainerSecurityContext{},
-			expectedMounts: []*runtime.Mount{
-				{
-					ContainerPath:  "/etc/hosts",
-					HostPath:       filepath.Join(testRootDir, sandboxesDir, testSandboxID, "hosts"),
-					Readonly:       false,
-					SelinuxRelabel: true,
-				},
-				{
-					ContainerPath:  resolvConfPath,
-					HostPath:       filepath.Join(testRootDir, sandboxesDir, testSandboxID, "resolv.conf"),
-					Readonly:       false,
-					SelinuxRelabel: true,
-				},
-				{
-					ContainerPath:  "/dev/shm",
-					HostPath:       filepath.Join(testStateDir, sandboxesDir, testSandboxID, "shm"),
-					Readonly:       false,
-					SelinuxRelabel: true,
-				},
-			},
-		},
-	} {
-		t.Run(desc, func(t *testing.T) {
-			config := &runtime.ContainerConfig{
-				Metadata: &runtime.ContainerMetadata{
-					Name:    "test-name",
-					Attempt: 1,
-				},
-				Mounts: test.criMounts,
-				Linux: &runtime.LinuxContainerConfig{
-					SecurityContext: test.securityContext,
-				},
-			}
-			c := newTestCRIService()
-			c.os.(*ostesting.FakeOS).StatFn = test.statFn
-			mounts := c.containerMounts(testSandboxID, config)
-			assert.Equal(t, test.expectedMounts, mounts, desc)
 		})
 	}
 }
@@ -1506,6 +1327,87 @@ func TestGenerateUserString(t *testing.T) {
 	}
 }
 
+func TestProcessUser(t *testing.T) {
+	testID := "test-id"
+	testSandboxID := "sandbox-id"
+	testContainerName := "container-name"
+	testPid := uint32(1234)
+	ociRuntime := config.Runtime{}
+	c := newTestCRIService()
+	testContainer := &containers.Container{ID: "64ddfe361f0099f8d59075398feeb3dcb3863b6851df7b946744755066c03e9d"}
+	ctx := context.Background()
+
+	etcPasswd := `
+root:x:0:0:root:/root:/bin/sh
+alice:x:1000:1000:alice:/home/alice:/bin/sh
+` // #nosec G101
+	etcGroup := `
+root:x:0
+alice:x:1000:
+additional-group-for-alice:x:11111:alice
+additional-group-for-root:x:22222:root
+`
+	tempRootDir := t.TempDir()
+	require.NoError(t,
+		os.MkdirAll(filepath.Join(tempRootDir, "etc"), 0755),
+	)
+	require.NoError(t,
+		os.WriteFile(filepath.Join(tempRootDir, "etc", "passwd"), []byte(etcPasswd), 0644),
+	)
+	require.NoError(t,
+		os.WriteFile(filepath.Join(tempRootDir, "etc", "group"), []byte(etcGroup), 0644),
+	)
+
+	for desc, test := range map[string]struct {
+		imageConfigUser string
+		securityContext *runtime.LinuxContainerSecurityContext
+		expected        runtimespec.User
+	}{
+		"Only SecurityContext was set, SecurityContext defines User": {
+			securityContext: &runtime.LinuxContainerSecurityContext{
+				RunAsUser:          &runtime.Int64Value{Value: 1000},
+				RunAsGroup:         &runtime.Int64Value{Value: 2000},
+				SupplementalGroups: []int64{3333},
+			},
+			expected: runtimespec.User{UID: 1000, GID: 2000, AdditionalGids: []uint32{2000, 3333, 11111}},
+		},
+		"Only imageConfig.User was set, imageConfig.User defines User": {
+			imageConfigUser: "1000",
+			securityContext: nil,
+			expected:        runtimespec.User{UID: 1000, GID: 1000, AdditionalGids: []uint32{1000, 11111}},
+		},
+		"Both SecurityContext and ImageConfig.User was set, SecurityContext defines User": {
+			imageConfigUser: "0",
+			securityContext: &runtime.LinuxContainerSecurityContext{
+				RunAsUser:          &runtime.Int64Value{Value: 1000},
+				RunAsGroup:         &runtime.Int64Value{Value: 2000},
+				SupplementalGroups: []int64{3333},
+			},
+			expected: runtimespec.User{UID: 1000, GID: 2000, AdditionalGids: []uint32{2000, 3333, 11111}},
+		},
+		"No SecurityContext nor ImageConfig.User were set, runtime default defines User": {
+			expected: runtimespec.User{UID: 0, GID: 0, AdditionalGids: []uint32{0, 22222}},
+		},
+	} {
+		desc := desc
+		t.Run(desc, func(t *testing.T) {
+			containerConfig, sandboxConfig, imageConfig, _ := getCreateContainerTestData()
+			containerConfig.Linux.SecurityContext = test.securityContext
+			imageConfig.User = test.imageConfigUser
+
+			spec, err := c.buildContainerSpec(currentPlatform, testID, testSandboxID, testPid, "", testContainerName, testImageName, containerConfig, sandboxConfig, imageConfig, nil, ociRuntime)
+			require.NoError(t, err)
+
+			spec.Root.Path = tempRootDir // simulating /etc/{passwd, group}
+			opts, err := c.platformSpecOpts(platforms.DefaultSpec(), containerConfig, imageConfig)
+			require.NoError(t, err)
+			oci.ApplyOpts(ctx, nil, testContainer, spec, opts...)
+
+			require.Equal(t, test.expected, spec.Process.User)
+		})
+	}
+}
+
 func TestNonRootUserAndDevices(t *testing.T) {
 	testPid := uint32(1234)
 	c := newTestCRIService()
@@ -1733,13 +1635,20 @@ func TestCDIInjections(t *testing.T) {
 	for _, test := range []struct {
 		description   string
 		cdiSpecFiles  []string
+		cdiDevices    []*runtime.CDIDevice
 		annotations   map[string]string
 		expectError   bool
 		expectDevices []runtimespec.LinuxDevice
 		expectEnv     []string
 	}{
-		{description: "expect no CDI error for nil annotations"},
-		{description: "expect no CDI error for empty annotations",
+		{description: "expect no CDI error for nil annotations",
+			cdiDevices: []*runtime.CDIDevice{},
+		},
+		{description: "expect no CDI error for nil CDIDevices",
+			annotations: map[string]string{},
+		},
+		{description: "expect no CDI error for empty CDI devices and annotations",
+			cdiDevices:  []*runtime.CDIDevice{},
 			annotations: map[string]string{},
 		},
 		{description: "expect CDI error for invalid CDI device reference in annotations",
@@ -1748,13 +1657,25 @@ func TestCDIInjections(t *testing.T) {
 			},
 			expectError: true,
 		},
-		{description: "expect CDI error for unresolvable devices",
+		{description: "expect CDI error for invalid CDI device reference in CDIDevices",
+			cdiDevices: []*runtime.CDIDevice{
+				{Name: "foobar"},
+			},
+			expectError: true,
+		},
+		{description: "expect CDI error for unresolvable devices in annotations",
 			annotations: map[string]string{
 				cdi.AnnotationPrefix + "vendor1_devices": "vendor1.com/device=no-such-dev",
 			},
 			expectError: true,
 		},
-		{description: "expect properly injected resolvable CDI devices",
+		{description: "expect CDI error for unresolvable devices in CDIDevices",
+			cdiDevices: []*runtime.CDIDevice{
+				{Name: "vendor1.com/device=no-such-dev"},
+			},
+			expectError: true,
+		},
+		{description: "expect properly injected resolvable CDI devices from annotations",
 			cdiSpecFiles: []string{
 				`
 cdiVersion: "0.3.0"
@@ -1816,6 +1737,185 @@ containerEdits:
 				"VENDOR2=present",
 			},
 		},
+		{description: "expect properly injected resolvable CDI devices from CDIDevices",
+			cdiSpecFiles: []string{
+				`
+cdiVersion: "0.3.0"
+kind: "vendor1.com/device"
+devices:
+  - name: foo
+    containerEdits:
+      deviceNodes:
+        - path: /dev/loop8
+          type: b
+          major: 7
+          minor: 8
+      env:
+        - FOO=injected
+containerEdits:
+  env:
+    - "VENDOR1=present"
+`,
+				`
+cdiVersion: "0.3.0"
+kind: "vendor2.com/device"
+devices:
+  - name: bar
+    containerEdits:
+      deviceNodes:
+        - path: /dev/loop9
+          type: b
+          major: 7
+          minor: 9
+      env:
+        - BAR=injected
+containerEdits:
+  env:
+    - "VENDOR2=present"
+`,
+			},
+			cdiDevices: []*runtime.CDIDevice{
+				{Name: "vendor1.com/device=foo"},
+				{Name: "vendor2.com/device=bar"},
+			},
+			expectDevices: []runtimespec.LinuxDevice{
+				{
+					Path:  "/dev/loop8",
+					Type:  "b",
+					Major: 7,
+					Minor: 8,
+				},
+				{
+					Path:  "/dev/loop9",
+					Type:  "b",
+					Major: 7,
+					Minor: 9,
+				},
+			},
+			expectEnv: []string{
+				"FOO=injected",
+				"VENDOR1=present",
+				"BAR=injected",
+				"VENDOR2=present",
+			},
+		},
+		{description: "expect CDI devices from CDIDevices and annotations",
+			cdiSpecFiles: []string{
+				`
+cdiVersion: "0.3.0"
+kind: "vendor1.com/device"
+devices:
+  - name: foo
+    containerEdits:
+      deviceNodes:
+        - path: /dev/loop8
+          type: b
+          major: 7
+          minor: 8
+      env:
+        - FOO=injected
+containerEdits:
+  env:
+    - "VENDOR1=present"
+`,
+				`
+cdiVersion: "0.3.0"
+kind: "vendor2.com/device"
+devices:
+  - name: bar
+    containerEdits:
+      deviceNodes:
+        - path: /dev/loop9
+          type: b
+          major: 7
+          minor: 9
+      env:
+        - BAR=injected
+containerEdits:
+  env:
+    - "VENDOR2=present"
+`,
+				`
+cdiVersion: "0.3.0"
+kind: "vendor3.com/device"
+devices:
+  - name: foo3
+    containerEdits:
+      deviceNodes:
+        - path: /dev/loop10
+          type: b
+          major: 7
+          minor: 10
+      env:
+        - FOO3=injected
+containerEdits:
+  env:
+    - "VENDOR3=present"
+`,
+				`
+cdiVersion: "0.3.0"
+kind: "vendor4.com/device"
+devices:
+  - name: bar4
+    containerEdits:
+      deviceNodes:
+        - path: /dev/loop11
+          type: b
+          major: 7
+          minor: 11
+      env:
+        - BAR4=injected
+containerEdits:
+  env:
+    - "VENDOR4=present"
+`,
+			},
+			cdiDevices: []*runtime.CDIDevice{
+				{Name: "vendor1.com/device=foo"},
+				{Name: "vendor2.com/device=bar"},
+				{Name: "vendor3.com/device=foo3"},
+			},
+			annotations: map[string]string{
+				cdi.AnnotationPrefix + "vendor3_devices": "vendor3.com/device=foo3", // Duplicated device, should be ignored
+				cdi.AnnotationPrefix + "vendor4_devices": "vendor4.com/device=bar4",
+			},
+			expectDevices: []runtimespec.LinuxDevice{
+				{
+					Path:  "/dev/loop8",
+					Type:  "b",
+					Major: 7,
+					Minor: 8,
+				},
+				{
+					Path:  "/dev/loop9",
+					Type:  "b",
+					Major: 7,
+					Minor: 9,
+				},
+				{
+					Path:  "/dev/loop10",
+					Type:  "b",
+					Major: 7,
+					Minor: 10,
+				},
+				{
+					Path:  "/dev/loop11",
+					Type:  "b",
+					Major: 7,
+					Minor: 11,
+				},
+			},
+			expectEnv: []string{
+				"FOO=injected",
+				"VENDOR1=present",
+				"BAR=injected",
+				"VENDOR2=present",
+				"FOO3=injected",
+				"VENDOR3=present",
+				"BAR4=injected",
+				"VENDOR4=present",
+			},
+		},
 	} {
 		t.Run(test.description, func(t *testing.T) {
 			spec, err := c.buildContainerSpec(currentPlatform, testID, testSandboxID, testPid, "", testContainerName, testImageName, containerConfig, sandboxConfig, imageConfig, nil, ociRuntime)
@@ -1833,7 +1933,7 @@ containerEdits:
 			err = reg.Configure(cdi.WithSpecDirs(cdiDir))
 			require.NoError(t, err)
 
-			injectFun := customopts.WithCDI(test.annotations)
+			injectFun := customopts.WithCDI(test.annotations, test.cdiDevices)
 			err = injectFun(ctx, nil, testContainer, spec)
 			assert.Equal(t, test.expectError, err != nil)
 

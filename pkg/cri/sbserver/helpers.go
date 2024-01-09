@@ -38,7 +38,6 @@ import (
 	criconfig "github.com/containerd/containerd/pkg/cri/config"
 	containerstore "github.com/containerd/containerd/pkg/cri/store/container"
 	imagestore "github.com/containerd/containerd/pkg/cri/store/image"
-	sandboxstore "github.com/containerd/containerd/pkg/cri/store/sandbox"
 	runtimeoptions "github.com/containerd/containerd/pkg/runtimeoptions/v1"
 	"github.com/containerd/containerd/plugin"
 	"github.com/containerd/containerd/reference/docker"
@@ -84,12 +83,7 @@ const (
 	containerKindSandbox = "sandbox"
 	// containerKindContainer is a label value indicating container is application container
 	containerKindContainer = "container"
-	// imageLabelKey is the label key indicating the image is managed by cri plugin.
-	imageLabelKey = criContainerdPrefix + ".image"
-	// imageLabelValue is the label value indicating the image is managed by cri plugin.
-	imageLabelValue = "managed"
-	// sandboxMetadataExtension is an extension name that identify metadata of sandbox in CreateContainerRequest
-	sandboxMetadataExtension = criContainerdPrefix + ".sandbox.metadata"
+
 	// containerMetadataExtension is an extension name that identify metadata of container in CreateContainerRequest
 	containerMetadataExtension = criContainerdPrefix + ".container.metadata"
 
@@ -98,7 +92,48 @@ const (
 
 	// runtimeRunhcsV1 is the runtime type for runhcs.
 	runtimeRunhcsV1 = "io.containerd.runhcs.v1"
+
+	// devShm is the default path of /dev/shm.
+	devShm = "/dev/shm"
+	// etcHosts is the default path of /etc/hosts file.
+	etcHosts = "/etc/hosts"
+	// etcHostname is the default path of /etc/hostname file.
+	etcHostname = "/etc/hostname"
+	// resolvConfPath is the abs path of resolv.conf on host or container.
+	resolvConfPath = "/etc/resolv.conf"
 )
+
+// getSandboxRootDir returns the root directory for managing sandbox files,
+// e.g. hosts files.
+func (c *criService) getSandboxRootDir(id string) string {
+	return filepath.Join(c.config.RootDir, sandboxesDir, id)
+}
+
+// getVolatileSandboxRootDir returns the root directory for managing volatile sandbox files,
+// e.g. named pipes.
+func (c *criService) getVolatileSandboxRootDir(id string) string {
+	return filepath.Join(c.config.StateDir, sandboxesDir, id)
+}
+
+// getSandboxHostname returns the hostname file path inside the sandbox root directory.
+func (c *criService) getSandboxHostname(id string) string {
+	return filepath.Join(c.getSandboxRootDir(id), "hostname")
+}
+
+// getSandboxHosts returns the hosts file path inside the sandbox root directory.
+func (c *criService) getSandboxHosts(id string) string {
+	return filepath.Join(c.getSandboxRootDir(id), "hosts")
+}
+
+// getResolvPath returns resolv.conf filepath for specified sandbox.
+func (c *criService) getResolvPath(id string) string {
+	return filepath.Join(c.getSandboxRootDir(id), "resolv.conf")
+}
+
+// getSandboxDevShm returns the shm file path inside the sandbox root directory.
+func (c *criService) getSandboxDevShm(id string) string {
+	return filepath.Join(c.getVolatileSandboxRootDir(id), "shm")
+}
 
 // makeSandboxName generates sandbox name from sandbox metadata. The name
 // generated is unique as long as sandbox metadata is unique.
@@ -406,13 +441,6 @@ func unknownContainerStatus() containerstore.Status {
 		ExitCode:   unknownExitCode,
 		Reason:     unknownExitReason,
 		Unknown:    true,
-	}
-}
-
-// unknownSandboxStatus returns the default sandbox status when its status is unknown.
-func unknownSandboxStatus() sandboxstore.Status {
-	return sandboxstore.Status{
-		State: sandboxstore.StateUnknown,
 	}
 }
 
