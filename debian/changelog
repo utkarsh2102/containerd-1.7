@@ -1,3 +1,12 @@
+containerd (1.7.16-0ubuntu0~22.04.1~gke1) jammy; urgency=medium
+
+  * New upstream version 1.7.16.
+  * Drop d/p/add-go-noinline.patch.
+  * Comment out the negative-oom-score.
+  * Refresh d/patches.
+
+ -- Utkarsh Gupta <utkarsh@ubuntu.com>  Tue, 04 Jun 2024 02:45:38 +0530
+
 containerd (1.7.13-0ubuntu0~22.04.1~gke1) jammy; urgency=medium
 
   * New upstream version 1.7.13.
