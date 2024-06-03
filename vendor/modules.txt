@@ -130,7 +130,7 @@ github.com/containerd/imgcrypt/images/encryption
 ## explicit; go 1.20
 github.com/containerd/log
 github.com/containerd/log/logtest
-# github.com/containerd/nri v0.4.0
+# github.com/containerd/nri v0.6.1
 ## explicit; go 1.19
 github.com/containerd/nri
 github.com/containerd/nri/pkg/adaptation
@@ -141,8 +141,8 @@ github.com/containerd/nri/pkg/net/multiplex
 github.com/containerd/nri/pkg/runtime-tools/generate
 github.com/containerd/nri/pkg/stub
 github.com/containerd/nri/types/v1
-# github.com/containerd/ttrpc v1.2.2
-## explicit; go 1.13
+# github.com/containerd/ttrpc v1.2.3
+## explicit; go 1.19
 github.com/containerd/ttrpc
 # github.com/containerd/typeurl v1.0.2
 ## explicit; go 1.13
@@ -235,8 +235,8 @@ github.com/gogo/protobuf/types
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 ## explicit
 github.com/golang/groupcache/lru
-# github.com/golang/protobuf v1.5.3
-## explicit; go 1.9
+# github.com/golang/protobuf v1.5.4
+## explicit; go 1.17
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
@@ -483,7 +483,6 @@ go.opentelemetry.io/otel/sdk/internal
 go.opentelemetry.io/otel/sdk/internal/env
 go.opentelemetry.io/otel/sdk/resource
 go.opentelemetry.io/otel/sdk/trace
-go.opentelemetry.io/otel/sdk/trace/tracetest
 # go.opentelemetry.io/otel/trace v1.19.0
 ## explicit; go 1.20
 go.opentelemetry.io/otel/trace
@@ -583,7 +582,7 @@ google.golang.org/genproto/protobuf/field_mask
 # google.golang.org/genproto/googleapis/api v0.0.0-20230711160842-782d3b101e98
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/api/httpbody
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20230731190214-cbb8c96f2d6d
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/code
 google.golang.org/genproto/googleapis/rpc/errdetails
@@ -642,8 +641,8 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.31.0
-## explicit; go 1.11
+# google.golang.org/protobuf v1.33.0
+## explicit; go 1.17
 google.golang.org/protobuf/compiler/protogen
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
@@ -651,6 +650,7 @@ google.golang.org/protobuf/encoding/protowire
 google.golang.org/protobuf/internal/descfmt
 google.golang.org/protobuf/internal/descopts
 google.golang.org/protobuf/internal/detrand
+google.golang.org/protobuf/internal/editiondefaults
 google.golang.org/protobuf/internal/encoding/defval
 google.golang.org/protobuf/internal/encoding/json
 google.golang.org/protobuf/internal/encoding/messageset
@@ -675,6 +675,7 @@ google.golang.org/protobuf/runtime/protoiface
 google.golang.org/protobuf/runtime/protoimpl
 google.golang.org/protobuf/types/descriptorpb
 google.golang.org/protobuf/types/dynamicpb
+google.golang.org/protobuf/types/gofeaturespb
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/emptypb
@@ -820,13 +821,12 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# tags.cncf.io/container-device-interface v0.6.2
-## explicit; go 1.19
-tags.cncf.io/container-device-interface/internal/multierror
+# tags.cncf.io/container-device-interface v0.7.2
+## explicit; go 1.20
 tags.cncf.io/container-device-interface/internal/validation
 tags.cncf.io/container-device-interface/internal/validation/k8s
 tags.cncf.io/container-device-interface/pkg/cdi
 tags.cncf.io/container-device-interface/pkg/parser
-# tags.cncf.io/container-device-interface/specs-go v0.6.0
+# tags.cncf.io/container-device-interface/specs-go v0.7.0
 ## explicit; go 1.19
 tags.cncf.io/container-device-interface/specs-go
