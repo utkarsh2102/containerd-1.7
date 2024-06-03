@@ -1,6 +1,6 @@
 module github.com/containerd/containerd
 
-go 1.19
+go 1.21
 
 require (
 	dario.cat/mergo v1.0.0
@@ -18,8 +18,8 @@ require (
 	github.com/containerd/go-runc v1.0.0
 	github.com/containerd/imgcrypt v1.1.7
 	github.com/containerd/log v0.1.0
-	github.com/containerd/nri v0.4.0
-	github.com/containerd/ttrpc v1.2.2
+	github.com/containerd/nri v0.6.1
+	github.com/containerd/ttrpc v1.2.3
 	github.com/containerd/typeurl/v2 v2.1.1
 	github.com/containerd/zfs v1.1.0
 	github.com/containernetworking/cni v1.1.2
@@ -69,9 +69,9 @@ require (
 	golang.org/x/sync v0.3.0
 	golang.org/x/sys v0.13.0
 	google.golang.org/genproto v0.0.0-20230711160842-782d3b101e98
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230731190214-cbb8c96f2d6d
 	google.golang.org/grpc v1.58.3
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.33.0
 	k8s.io/api v0.26.2
 	k8s.io/apimachinery v0.26.2
 	k8s.io/apiserver v0.26.2
@@ -80,7 +80,7 @@ require (
 	k8s.io/cri-api v0.27.1
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5
-	tags.cncf.io/container-device-interface v0.6.2
+	tags.cncf.io/container-device-interface v0.7.2
 )
 
 require (
@@ -99,7 +99,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -142,5 +142,9 @@ require (
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
-	tags.cncf.io/container-device-interface/specs-go v0.6.0 // indirect
+	tags.cncf.io/container-device-interface/specs-go v0.7.0 // indirect
 )
+
+// Workaround for indirect dependency no longer being available.
+// https://github.com/containerd/containerd/issues/9969
+exclude github.com/mitchellh/osext v0.0.0-20151018003038-5e2d6d41470f

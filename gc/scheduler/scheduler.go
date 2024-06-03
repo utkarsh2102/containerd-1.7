@@ -246,6 +246,7 @@ func schedule(d time.Duration) (<-chan time.Time, *time.Time) {
 }
 
 func (s *gcScheduler) run(ctx context.Context) {
+	const minimumGCTime = float64(5 * time.Millisecond)
 	var (
 		schedC <-chan time.Time
 
@@ -328,7 +329,7 @@ func (s *gcScheduler) run(ctx context.Context) {
 
 		gcTime := stats.Elapsed()
 		gcTimeHist.Update(gcTime)
-		log.G(ctx).WithField("d", gcTime).Debug("garbage collected")
+		log.G(ctx).WithField("d", gcTime).Trace("garbage collected")
 		gcTimeSum += gcTime
 		collections++
 		collectionCounter.WithValues("success").Inc()
@@ -343,6 +344,11 @@ func (s *gcScheduler) run(ctx context.Context) {
 			// runtime in between gc to reach the pause threshold.
 			// Pause threshold is always 0.0 < threshold <= 0.5
 			avg := float64(gcTimeSum) / float64(collections)
+			// Enforce that avg is no less than minimumGCTime
+			// to prevent immediate rescheduling
+			if avg < minimumGCTime {
+				avg = minimumGCTime
+			}
 			interval = time.Duration(avg/s.pauseThreshold - avg)
 		}
 
