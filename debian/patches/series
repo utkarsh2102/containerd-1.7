@@ -1,3 +1,3 @@
 skip-tests-with-privilege.patch
 preserve-debug-info.patch
-skip-negative-oom-score-adjustment.patch
+#skip-negative-oom-score-adjustment.patch
